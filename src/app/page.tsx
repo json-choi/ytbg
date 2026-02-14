@@ -10,6 +10,7 @@ import { usePlayer } from "@/lib/hooks/usePlayer";
 import { usePlaylists } from "@/lib/hooks/usePlaylists";
 import { useHistory } from "@/lib/hooks/useHistory";
 import type { ParseResponse, Track } from "@/lib/types";
+import { InstallBanner } from "@/components/InstallBanner";
 import { Play, Save } from "lucide-react";
 
 export default function HomePage() {
@@ -43,6 +44,7 @@ export default function HomePage() {
   return (
     <div>
       <Header title="YTBG Player" />
+      <InstallBanner />
 
       <div className="space-y-6 p-4">
         <section>
