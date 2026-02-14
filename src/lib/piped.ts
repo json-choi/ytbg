@@ -62,6 +62,7 @@ interface PipedPlaylistResponse {
 }
 
 async function pipedFetch(path: string): Promise<unknown> {
+  await refreshInstances();
   let lastError: Error | null = null;
 
   for (const instance of PIPED_INSTANCES) {
