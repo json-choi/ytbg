@@ -27,7 +27,16 @@ const DB_VERSION = 1;
 
 let dbPromise: Promise<IDBPDatabase<YtbgDB>> | null = null;
 
+function dispatchDBEvent(name: string): void {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(name));
+  }
+}
+
 function getDB(): Promise<IDBPDatabase<YtbgDB>> {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("IndexedDB is not available on the server"));
+  }
   if (!dbPromise) {
     dbPromise = openDB<YtbgDB>(DB_NAME, DB_VERSION, {
       upgrade(db) {
@@ -63,11 +72,13 @@ export async function getPlaylist(id: string): Promise<Playlist | undefined> {
 export async function savePlaylist(playlist: Playlist): Promise<void> {
   const db = await getDB();
   await db.put("playlists", playlist);
+  dispatchDBEvent("ytbg-playlists-updated");
 }
 
 export async function deletePlaylist(id: string): Promise<void> {
   const db = await getDB();
   await db.delete("playlists", id);
+  dispatchDBEvent("ytbg-playlists-updated");
 }
 
 export async function getHistory(): Promise<HistoryEntry[]> {
@@ -89,11 +100,13 @@ export async function addToHistory(track: Track): Promise<void> {
     }
     await tx.done;
   }
+  dispatchDBEvent("ytbg-history-updated");
 }
 
 export async function clearHistory(): Promise<void> {
   const db = await getDB();
   await db.clear("history");
+  dispatchDBEvent("ytbg-history-updated");
 }
 
 export async function getFavorites(): Promise<Track[]> {
@@ -113,9 +126,11 @@ export async function toggleFavorite(track: Track): Promise<boolean> {
   const existing = await db.get("favorites", track.id);
   if (existing) {
     await db.delete("favorites", track.id);
+    dispatchDBEvent("ytbg-favorites-updated");
     return false;
   }
   await db.put("favorites", { track, addedAt: Date.now() });
+  dispatchDBEvent("ytbg-favorites-updated");
   return true;
 }
 

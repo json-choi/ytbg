@@ -1,11 +1,33 @@
 import type { Track } from "./types";
 import { getThumbnailUrl } from "./youtube";
 
-const PIPED_INSTANCES = [
+let PIPED_INSTANCES = [
+  "https://api.piped.private.coffee",
   "https://pipedapi.kavin.rocks",
   "https://pipedapi.adminforge.de",
-  "https://api.piped.projectsegfau.lt",
 ];
+
+let instancesLastFetched = 0;
+const INSTANCES_TTL = 30 * 60 * 1000;
+
+async function refreshInstances(): Promise<void> {
+  if (Date.now() - instancesLastFetched < INSTANCES_TTL) return;
+  try {
+    const res = await fetch("https://piped-instances.kavin.rocks/", {
+      signal: AbortSignal.timeout(5000),
+    });
+    const data = (await res.json()) as Array<{ api_url?: string; name?: string }>;
+    const urls = data
+      .map((i) => i.api_url)
+      .filter((u): u is string => !!u && u.startsWith("https://"));
+    if (urls.length > 0) {
+      PIPED_INSTANCES = urls;
+      instancesLastFetched = Date.now();
+    }
+  } catch {
+    // 실패해도 기존 목록 유지
+  }
+}
 
 interface PipedAudioStream {
   url: string;

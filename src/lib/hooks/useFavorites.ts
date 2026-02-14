@@ -16,6 +16,9 @@ export function useFavorites() {
 
   useEffect(() => {
     refresh();
+    const handler = () => { refresh(); };
+    window.addEventListener("ytbg-favorites-updated", handler);
+    return () => window.removeEventListener("ytbg-favorites-updated", handler);
   }, [refresh]);
 
   const toggleFavorite = useCallback(
@@ -35,7 +38,10 @@ export function useIsFavorite(trackId: string | undefined) {
 
   useEffect(() => {
     if (!trackId) return;
-    dbIsFavorite(trackId).then(setFav);
+    const check = () => { dbIsFavorite(trackId).then(setFav); };
+    check();
+    window.addEventListener("ytbg-favorites-updated", check);
+    return () => window.removeEventListener("ytbg-favorites-updated", check);
   }, [trackId]);
 
   return fav;

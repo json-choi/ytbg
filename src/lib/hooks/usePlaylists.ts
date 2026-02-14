@@ -16,6 +16,9 @@ export function usePlaylists() {
 
   useEffect(() => {
     refresh();
+    const handler = () => { refresh(); };
+    window.addEventListener("ytbg-playlists-updated", handler);
+    return () => window.removeEventListener("ytbg-playlists-updated", handler);
   }, [refresh]);
 
   const createPlaylist = useCallback(
@@ -72,6 +75,9 @@ export function usePlaylistDetail(id: string) {
 
   useEffect(() => {
     refresh();
+    const handler = () => { refresh(); };
+    window.addEventListener("ytbg-playlists-updated", handler);
+    return () => window.removeEventListener("ytbg-playlists-updated", handler);
   }, [refresh]);
 
   return { playlist, loading, refresh };

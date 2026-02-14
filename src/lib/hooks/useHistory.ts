@@ -16,6 +16,9 @@ export function useHistory() {
 
   useEffect(() => {
     refresh();
+    const handler = () => { refresh(); };
+    window.addEventListener("ytbg-history-updated", handler);
+    return () => window.removeEventListener("ytbg-history-updated", handler);
   }, [refresh]);
 
   const clearAll = useCallback(async () => {
