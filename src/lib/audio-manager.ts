@@ -12,6 +12,10 @@ type Listener = (state: PlayerState) => void;
 
 const STREAM_CACHE = new Map<string, { url: string; expiresAt: number }>();
 
+// Minimal silent WAV for unlocking audio on mobile
+const SILENCE_DATA_URI =
+  "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+
 class AudioManager {
   private audio: HTMLAudioElement | null = null;
   private listeners = new Set<Listener>();
@@ -30,6 +34,8 @@ class AudioManager {
     error: null,
   };
   private shuffledIndices: number[] = [];
+  private unlocked = false;
+  private consecutiveErrors = 0;
 
   init(): void {
     if (typeof window === "undefined") return;
@@ -54,6 +60,7 @@ class AudioManager {
     });
 
     this.audio.addEventListener("playing", () => {
+      this.consecutiveErrors = 0;
       this.setState({ isPlaying: true, error: null });
       updatePlaybackState("playing");
     });
@@ -68,11 +75,21 @@ class AudioManager {
     });
 
     this.audio.addEventListener("error", () => {
-      this.setState({
-        isLoading: false,
-        error: "Failed to load audio",
-      });
-      setTimeout(() => this.playNext(), 1500);
+      this.consecutiveErrors++;
+      if (this.consecutiveErrors >= 3) {
+        // 3 consecutive failures — skip to next track
+        this.consecutiveErrors = 0;
+        this.setState({
+          isLoading: false,
+          error: "재생 실패 — 다음 곡으로 이동",
+        });
+        setTimeout(() => this.playNext(), 1000);
+      } else {
+        this.setState({
+          isLoading: false,
+          error: "탭하여 재생",
+        });
+      }
     });
 
     this.audio.addEventListener("waiting", () => {
@@ -92,6 +109,38 @@ class AudioManager {
       onSeekBackward: () => this.seekRelative(-10),
       onSeekTo: (time) => this.seekTo(time),
     });
+
+    this.setupUnlockListener();
+  }
+
+  private setupUnlockListener(): void {
+    if (this.unlocked) return;
+
+    const unlock = () => {
+      if (this.unlocked) return;
+      this.unlocked = true;
+
+      if (this.audio) {
+        const prevSrc = this.audio.src;
+        this.audio.src = SILENCE_DATA_URI;
+        this.audio.play().then(() => {
+          this.audio!.pause();
+          if (prevSrc && prevSrc !== SILENCE_DATA_URI) {
+            this.audio!.src = prevSrc;
+          }
+        }).catch(() => {
+          this.unlocked = false;
+        });
+      }
+
+      document.removeEventListener("click", unlock, true);
+      document.removeEventListener("touchend", unlock, true);
+      document.removeEventListener("keydown", unlock, true);
+    };
+
+    document.addEventListener("click", unlock, true);
+    document.addEventListener("touchend", unlock, true);
+    document.addEventListener("keydown", unlock, true);
   }
 
   subscribe(listener: Listener): () => void {
@@ -142,19 +191,50 @@ class AudioManager {
     updateMediaMetadata(track);
 
     try {
+      // Unlock audio element in the current user gesture context
+      // before the async fetch breaks the gesture chain
+      if (!this.unlocked && this.audio) {
+        this.audio.src = SILENCE_DATA_URI;
+        try {
+          await this.audio.play();
+          this.audio.pause();
+          this.unlocked = true;
+        } catch { /* empty */ }
+      }
+
       const url = await this.getStreamUrl(track.id);
       this.audio!.src = url;
       await this.audio!.play();
+      this.consecutiveErrors = 0;
       addToHistory(track).catch(() => {});
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Failed to play";
-      this.setState({ isLoading: false, error: msg });
-      setTimeout(() => this.playNext(), 2000);
+      const msg = e instanceof Error ? e.message : "재생 실패";
+      this.setState({ isLoading: false, isPlaying: false, error: msg || "탭하여 재생" });
     }
   }
 
   play(): void {
-    this.audio?.play().catch(() => {});
+    if (!this.audio) return;
+    this.audio.play().catch(() => {
+      this.setState({ error: "탭하여 재생", isPlaying: false });
+    });
+  }
+
+  retryPlay(): void {
+    if (!this.audio) return;
+
+    this.setState({ error: null, isLoading: true });
+
+    if (this.state.currentTrack && (!this.audio.src || this.audio.src === SILENCE_DATA_URI)) {
+      this.playTrack(this.state.currentTrack);
+    } else {
+      this.audio.play().then(() => {
+        this.consecutiveErrors = 0;
+        this.setState({ isLoading: false, error: null });
+      }).catch(() => {
+        this.setState({ isLoading: false, error: "탭하여 재생", isPlaying: false });
+      });
+    }
   }
 
   pause(): void {
@@ -327,6 +407,8 @@ class AudioManager {
     clearMediaSession();
     this.listeners.clear();
     STREAM_CACHE.clear();
+    this.unlocked = false;
+    this.consecutiveErrors = 0;
   }
 }
 

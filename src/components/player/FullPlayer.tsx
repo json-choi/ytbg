@@ -11,6 +11,7 @@ import {
   ChevronDown,
   Heart,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePlayer } from "@/lib/hooks/usePlayer";
@@ -31,6 +32,7 @@ export function FullPlayer({ onCollapse }: FullPlayerProps) {
     currentTrack,
     isPlaying,
     isLoading,
+    error,
     currentTime,
     duration,
     volume,
@@ -38,6 +40,7 @@ export function FullPlayer({ onCollapse }: FullPlayerProps) {
     shuffle,
     repeat,
     togglePlay,
+    retryPlay,
     playNext,
     playPrevious,
     seekTo,
@@ -78,6 +81,9 @@ export function FullPlayer({ onCollapse }: FullPlayerProps) {
         <div className="w-full max-w-xs space-y-1 text-center">
           <h2 className="text-lg font-semibold leading-tight">{currentTrack.title}</h2>
           <p className="text-sm text-muted-foreground">{currentTrack.channel}</p>
+          {error && (
+            <p className="text-sm text-destructive">{error}</p>
+          )}
         </div>
 
         <div className="w-full max-w-xs">
@@ -99,10 +105,12 @@ export function FullPlayer({ onCollapse }: FullPlayerProps) {
           <Button
             size="icon"
             className="size-14 rounded-full"
-            onClick={togglePlay}
+            onClick={error ? retryPlay : togglePlay}
           >
             {isLoading ? (
               <Loader2 className="size-7 animate-spin" />
+            ) : error ? (
+              <AlertCircle className="size-7 text-destructive" />
             ) : isPlaying ? (
               <Pause className="size-7 fill-current" />
             ) : (

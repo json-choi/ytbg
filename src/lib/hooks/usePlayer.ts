@@ -41,6 +41,7 @@ export function usePlayer() {
   }, []);
 
   const togglePlay = useCallback(() => audioManager.togglePlay(), []);
+  const retryPlay = useCallback(() => audioManager.retryPlay(), []);
   const playNext = useCallback(() => audioManager.playNext(), []);
   const playPrevious = useCallback(() => audioManager.playPrevious(), []);
   const seekTo = useCallback((time: number) => audioManager.seekTo(time), []);
@@ -56,6 +57,7 @@ export function usePlayer() {
     playTrack,
     playQueue,
     togglePlay,
+    retryPlay,
     playNext,
     playPrevious,
     seekTo,

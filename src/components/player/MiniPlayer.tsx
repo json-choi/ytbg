@@ -1,6 +1,6 @@
 "use client";
 
-import { Play, Pause, SkipForward, Loader2 } from "lucide-react";
+import { Play, Pause, SkipForward, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePlayer } from "@/lib/hooks/usePlayer";
 import { ProgressBar } from "./ProgressBar";
@@ -11,10 +11,19 @@ interface MiniPlayerProps {
 }
 
 export function MiniPlayer({ onExpand }: MiniPlayerProps) {
-  const { currentTrack, isPlaying, isLoading, currentTime, duration, togglePlay, playNext, seekTo } =
+  const { currentTrack, isPlaying, isLoading, error, currentTime, duration, togglePlay, retryPlay, playNext, seekTo } =
     usePlayer();
 
   if (!currentTrack) return null;
+
+  const handlePlayClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (error) {
+      retryPlay();
+    } else {
+      togglePlay();
+    }
+  };
 
   return (
     <div className="fixed bottom-[calc(3.5rem)] left-0 right-0 z-50 border-t border-border bg-card">
@@ -32,7 +41,11 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
           </div>
           <div className="min-w-0 flex-1 text-left">
             <p className="truncate text-sm font-medium">{currentTrack.title}</p>
-            <p className="truncate text-xs text-muted-foreground">{currentTrack.channel}</p>
+            {error ? (
+              <p className="truncate text-xs text-destructive">{error}</p>
+            ) : (
+              <p className="truncate text-xs text-muted-foreground">{currentTrack.channel}</p>
+            )}
           </div>
         </button>
         <div className="flex items-center gap-1">
@@ -40,13 +53,12 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
             variant="ghost"
             size="icon"
             className="size-9"
-            onClick={(e) => {
-              e.stopPropagation();
-              togglePlay();
-            }}
+            onClick={handlePlayClick}
           >
             {isLoading ? (
               <Loader2 className="size-5 animate-spin" />
+            ) : error ? (
+              <AlertCircle className="size-5 text-destructive" />
             ) : isPlaying ? (
               <Pause className="size-5 fill-current" />
             ) : (
