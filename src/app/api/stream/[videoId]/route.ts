@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
-import ytdl from "@distube/ytdl-core";
+import { getAudioStream } from "@/lib/piped";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const cache = new Map<string, { url: string; expiresAt: number }>();
+const cache = new Map<
+  string,
+  { url: string; duration: number; mimeType: string; expiresAt: number }
+>();
 
 const CACHE_TTL = 5 * 60 * 1000;
+
+const VIDEO_ID_REGEX = /^[a-zA-Z0-9_-]{11}$/;
 
 export async function GET(
   _request: Request,
@@ -15,7 +20,7 @@ export async function GET(
   try {
     const { videoId } = await params;
 
-    if (!ytdl.validateID(videoId)) {
+    if (!VIDEO_ID_REGEX.test(videoId)) {
       return NextResponse.json({ error: "Invalid video ID" }, { status: 400 });
     }
 
@@ -27,16 +32,10 @@ export async function GET(
       });
     }
 
-    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-    const info = await ytdl.getInfo(videoUrl);
-
-    const format = ytdl.chooseFormat(info.formats, {
-      quality: "highestaudio",
-      filter: "audioonly",
-    });
-
+    const stream = await getAudioStream(videoId);
     const expiresAt = Date.now() + CACHE_TTL;
-    cache.set(videoId, { url: format.url, expiresAt });
+
+    cache.set(videoId, { ...stream, expiresAt });
 
     if (cache.size > 100) {
       const now = Date.now();
@@ -45,7 +44,7 @@ export async function GET(
       }
     }
 
-    return NextResponse.json({ url: format.url, expiresAt });
+    return NextResponse.json({ url: stream.url, expiresAt });
   } catch (error) {
     console.error("Stream error:", error);
 
