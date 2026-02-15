@@ -12,21 +12,23 @@ function getSnapshot(): PlayerState {
   return audioManager.getState();
 }
 
+const SERVER_SNAPSHOT: PlayerState = {
+  currentTrack: null,
+  queue: [],
+  queueIndex: -1,
+  isPlaying: false,
+  currentTime: 0,
+  duration: 0,
+  volume: 1,
+  isMuted: false,
+  shuffle: false,
+  repeat: "none",
+  isLoading: false,
+  error: null,
+};
+
 function getServerSnapshot(): PlayerState {
-  return {
-    currentTrack: null,
-    queue: [],
-    queueIndex: -1,
-    isPlaying: false,
-    currentTime: 0,
-    duration: 0,
-    volume: 1,
-    isMuted: false,
-    shuffle: false,
-    repeat: "none",
-    isLoading: false,
-    error: null,
-  };
+  return SERVER_SNAPSHOT;
 }
 
 export function usePlayer() {
