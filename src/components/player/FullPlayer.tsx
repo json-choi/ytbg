@@ -12,6 +12,7 @@ import {
   Heart,
   Loader2,
   AlertCircle,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePlayer } from "@/lib/hooks/usePlayer";
@@ -32,6 +33,7 @@ export function FullPlayer({ onCollapse }: FullPlayerProps) {
     currentTrack,
     isPlaying,
     isLoading,
+    downloadProgress,
     error,
     currentTime,
     duration,
@@ -55,6 +57,7 @@ export function FullPlayer({ onCollapse }: FullPlayerProps) {
   if (!currentTrack) return null;
 
   const RepeatIcon = repeat === "one" ? Repeat1 : Repeat;
+  const isDownloading = isLoading && downloadProgress > 0 && downloadProgress < 100;
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-background">
@@ -76,6 +79,12 @@ export function FullPlayer({ onCollapse }: FullPlayerProps) {
             sizes="320px"
             priority
           />
+          {isDownloading && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
+              <Download className="mb-2 size-8 animate-bounce text-white" />
+              <span className="text-lg font-bold text-white">{downloadProgress}%</span>
+            </div>
+          )}
         </div>
 
         <div className="w-full max-w-xs space-y-1 text-center">
@@ -83,6 +92,9 @@ export function FullPlayer({ onCollapse }: FullPlayerProps) {
           <p className="text-sm text-muted-foreground">{currentTrack.channel}</p>
           {error && (
             <p className="text-sm text-destructive">{error}</p>
+          )}
+          {isDownloading && (
+            <p className="text-sm text-blue-500">다운로드 중... {downloadProgress}%</p>
           )}
         </div>
 

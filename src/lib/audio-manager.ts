@@ -6,11 +6,12 @@ import {
   updatePositionState,
   clearMediaSession,
 } from "./media-session";
-import { addToHistory } from "./db";
+import { addToHistory, getMp3, saveMp3 } from "./db";
+import { convertToMp3 } from "./ytbg-api";
 
 type Listener = (state: PlayerState) => void;
 
-const STREAM_CACHE = new Map<string, { url: string; expiresAt: number }>();
+const BLOB_URL_CACHE = new Map<string, string>();
 
 // Minimal silent WAV for unlocking audio on mobile
 const SILENCE_DATA_URI =
@@ -31,6 +32,7 @@ class AudioManager {
     shuffle: false,
     repeat: "none",
     isLoading: false,
+    downloadProgress: 0,
     error: null,
   };
   private shuffledIndices: number[] = [];
@@ -77,7 +79,6 @@ class AudioManager {
     this.audio.addEventListener("error", () => {
       this.consecutiveErrors++;
       if (this.consecutiveErrors >= 3) {
-        // 3 consecutive failures — skip to next track
         this.consecutiveErrors = 0;
         this.setState({
           isLoading: false,
@@ -158,24 +159,39 @@ class AudioManager {
     this.listeners.forEach((l) => l(this.state));
   }
 
-  private async getStreamUrl(videoId: string): Promise<string> {
-    const cached = STREAM_CACHE.get(videoId);
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.url;
+  private getBlobUrl(trackId: string, blob: Blob): string {
+    // Revoke old URL if different blob
+    const existing = BLOB_URL_CACHE.get(trackId);
+    if (existing) return existing;
+
+    const url = URL.createObjectURL(blob);
+    BLOB_URL_CACHE.set(trackId, url);
+    return url;
+  }
+
+  private async getOrDownloadMp3(track: Track): Promise<string> {
+    // 1) Check IndexedDB cache
+    const cached = BLOB_URL_CACHE.get(track.id);
+    if (cached) return cached;
+
+    const stored = await getMp3(track.id);
+    if (stored) {
+      return this.getBlobUrl(track.id, stored);
     }
 
-    const res = await fetch(`/api/stream/${videoId}`);
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({ error: "Stream error" }));
-      throw new Error(err.error || "Failed to get stream");
-    }
+    // 2) Download from ytbg-server
+    const youtubeUrl = `https://www.youtube.com/watch?v=${track.id}`;
+    this.setState({ downloadProgress: 0 });
 
-    const data = await res.json();
-    STREAM_CACHE.set(videoId, {
-      url: data.url,
-      expiresAt: data.expiresAt,
+    const result = await convertToMp3(youtubeUrl, (pct) => {
+      this.setState({ downloadProgress: pct });
     });
-    return data.url;
+
+    // Save to IndexedDB
+    await saveMp3(track.id, result.blob);
+
+    this.setState({ downloadProgress: 100 });
+    return this.getBlobUrl(track.id, result.blob);
   }
 
   async playTrack(track: Track, queue?: Track[], queueIndex?: number): Promise<void> {
@@ -184,6 +200,7 @@ class AudioManager {
     this.setState({
       currentTrack: track,
       isLoading: true,
+      downloadProgress: 0,
       error: null,
       ...(queue ? { queue, queueIndex: queueIndex ?? 0 } : {}),
     });
@@ -192,7 +209,6 @@ class AudioManager {
 
     try {
       // Unlock audio element in the current user gesture context
-      // before the async fetch breaks the gesture chain
       if (!this.unlocked && this.audio) {
         this.audio.src = SILENCE_DATA_URI;
         try {
@@ -202,14 +218,14 @@ class AudioManager {
         } catch { /* empty */ }
       }
 
-      const url = await this.getStreamUrl(track.id);
-      this.audio!.src = url;
+      const blobUrl = await this.getOrDownloadMp3(track);
+      this.audio!.src = blobUrl;
       await this.audio!.play();
       this.consecutiveErrors = 0;
       addToHistory(track).catch(() => {});
     } catch (e) {
       const msg = e instanceof Error ? e.message : "재생 실패";
-      this.setState({ isLoading: false, isPlaying: false, error: msg || "탭하여 재생" });
+      this.setState({ isLoading: false, isPlaying: false, downloadProgress: 0, error: msg || "탭하여 재생" });
     }
   }
 
@@ -406,7 +422,11 @@ class AudioManager {
     }
     clearMediaSession();
     this.listeners.clear();
-    STREAM_CACHE.clear();
+    // Revoke all blob URLs
+    for (const url of BLOB_URL_CACHE.values()) {
+      URL.revokeObjectURL(url);
+    }
+    BLOB_URL_CACHE.clear();
     this.unlocked = false;
     this.consecutiveErrors = 0;
   }

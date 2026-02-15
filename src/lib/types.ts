@@ -4,6 +4,8 @@ export interface Track {
   thumbnail: string;
   duration: number;
   channel: string;
+  downloaded?: boolean;
+  fileSize?: number;
 }
 
 export interface Playlist {
@@ -31,12 +33,8 @@ export interface PlayerState {
   shuffle: boolean;
   repeat: "none" | "all" | "one";
   isLoading: boolean;
+  downloadProgress: number;
   error: string | null;
-}
-
-export interface StreamResponse {
-  url: string;
-  expiresAt: number;
 }
 
 export interface ParseResponse {

@@ -1,6 +1,6 @@
 "use client";
 
-import { Play, Pause, SkipForward, Loader2, AlertCircle } from "lucide-react";
+import { Play, Pause, SkipForward, Loader2, AlertCircle, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { usePlayer } from "@/lib/hooks/usePlayer";
 import { ProgressBar } from "./ProgressBar";
@@ -11,10 +11,23 @@ interface MiniPlayerProps {
 }
 
 export function MiniPlayer({ onExpand }: MiniPlayerProps) {
-  const { currentTrack, isPlaying, isLoading, error, currentTime, duration, togglePlay, retryPlay, playNext, seekTo } =
-    usePlayer();
+  const {
+    currentTrack,
+    isPlaying,
+    isLoading,
+    downloadProgress,
+    error,
+    currentTime,
+    duration,
+    togglePlay,
+    retryPlay,
+    playNext,
+    seekTo,
+  } = usePlayer();
 
   if (!currentTrack) return null;
+
+  const isDownloading = isLoading && downloadProgress > 0 && downloadProgress < 100;
 
   const handlePlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -43,6 +56,11 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
             <p className="truncate text-sm font-medium">{currentTrack.title}</p>
             {error ? (
               <p className="truncate text-xs text-destructive">{error}</p>
+            ) : isDownloading ? (
+              <p className="truncate text-xs text-blue-500">
+                <Download className="mr-1 inline size-3" />
+                다운로드 중... {downloadProgress}%
+              </p>
             ) : (
               <p className="truncate text-xs text-muted-foreground">{currentTrack.channel}</p>
             )}

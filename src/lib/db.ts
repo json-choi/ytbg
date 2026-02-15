@@ -20,10 +20,14 @@ interface YtbgDB extends DBSchema {
     key: string;
     value: unknown;
   };
+  mp3files: {
+    key: string;
+    value: { trackId: string; blob: Blob; savedAt: number };
+  };
 }
 
 const DB_NAME = "ytbg-db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 let dbPromise: Promise<IDBPDatabase<YtbgDB>> | null = null;
 
@@ -39,24 +43,31 @@ function getDB(): Promise<IDBPDatabase<YtbgDB>> {
   }
   if (!dbPromise) {
     dbPromise = openDB<YtbgDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        const playlistStore = db.createObjectStore("playlists", {
-          keyPath: "id",
-        });
-        playlistStore.createIndex("by-date", "createdAt");
+      upgrade(db, oldVersion) {
+        if (oldVersion < 1) {
+          const playlistStore = db.createObjectStore("playlists", {
+            keyPath: "id",
+          });
+          playlistStore.createIndex("by-date", "createdAt");
 
-        const historyStore = db.createObjectStore("history", {
-          autoIncrement: true,
-        });
-        historyStore.createIndex("by-date", "playedAt");
+          const historyStore = db.createObjectStore("history", {
+            autoIncrement: true,
+          });
+          historyStore.createIndex("by-date", "playedAt");
 
-        db.createObjectStore("favorites", { keyPath: "track.id" });
-        db.createObjectStore("settings");
+          db.createObjectStore("favorites", { keyPath: "track.id" });
+          db.createObjectStore("settings");
+        }
+        if (oldVersion < 2) {
+          db.createObjectStore("mp3files", { keyPath: "trackId" });
+        }
       },
     });
   }
   return dbPromise;
 }
+
+// ─── Playlists ─────────────────────────────────────────
 
 export async function getPlaylists(): Promise<Playlist[]> {
   const db = await getDB();
@@ -80,6 +91,8 @@ export async function deletePlaylist(id: string): Promise<void> {
   await db.delete("playlists", id);
   dispatchDBEvent("ytbg-playlists-updated");
 }
+
+// ─── History ───────────────────────────────────────────
 
 export async function getHistory(): Promise<HistoryEntry[]> {
   const db = await getDB();
@@ -109,6 +122,8 @@ export async function clearHistory(): Promise<void> {
   dispatchDBEvent("ytbg-history-updated");
 }
 
+// ─── Favorites ─────────────────────────────────────────
+
 export async function getFavorites(): Promise<Track[]> {
   const db = await getDB();
   const all = await db.getAll("favorites");
@@ -134,6 +149,8 @@ export async function toggleFavorite(track: Track): Promise<boolean> {
   return true;
 }
 
+// ─── Settings ──────────────────────────────────────────
+
 export async function getSetting<T>(key: string, fallback: T): Promise<T> {
   const db = await getDB();
   const val = await db.get("settings", key);
@@ -143,4 +160,28 @@ export async function getSetting<T>(key: string, fallback: T): Promise<T> {
 export async function setSetting<T>(key: string, value: T): Promise<void> {
   const db = await getDB();
   await db.put("settings", value, key);
+}
+
+// ─── MP3 Files ─────────────────────────────────────────
+
+export async function saveMp3(trackId: string, blob: Blob): Promise<void> {
+  const db = await getDB();
+  await db.put("mp3files", { trackId, blob, savedAt: Date.now() });
+}
+
+export async function getMp3(trackId: string): Promise<Blob | null> {
+  const db = await getDB();
+  const entry = await db.get("mp3files", trackId);
+  return entry?.blob ?? null;
+}
+
+export async function deleteMp3(trackId: string): Promise<void> {
+  const db = await getDB();
+  await db.delete("mp3files", trackId);
+}
+
+export async function hasMp3(trackId: string): Promise<boolean> {
+  const db = await getDB();
+  const entry = await db.get("mp3files", trackId);
+  return !!entry;
 }

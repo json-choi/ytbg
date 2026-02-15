@@ -24,6 +24,7 @@ const SERVER_SNAPSHOT: PlayerState = {
   shuffle: false,
   repeat: "none",
   isLoading: false,
+  downloadProgress: 0,
   error: null,
 };
 

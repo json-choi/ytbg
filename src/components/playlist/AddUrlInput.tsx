@@ -51,7 +51,7 @@ export function AddUrlInput({ onParsed }: AddUrlInputProps) {
           <LinkIcon className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="url"
-            placeholder="Paste YouTube URL or playlist..."
+            placeholder="YouTube 영상 URL을 붙여넣으세요"
             value={url}
             onChange={(e) => {
               setUrl(e.target.value);
