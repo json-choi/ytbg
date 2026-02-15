@@ -2,10 +2,6 @@ import { NextResponse } from "next/server";
 import type { ParseResponse, Track } from "@/lib/types";
 import { parseYoutubeUrl, getThumbnailUrl } from "@/lib/youtube";
 
-const SERVER_URL =
-  process.env.NEXT_PUBLIC_YTBG_SERVER_URL ||
-  "https://hearty-connection-production-01b9.up.railway.app";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -27,41 +23,33 @@ export async function POST(request: Request) {
       );
     }
 
-    // Handle playlist URLs
     if (parsed.type === "playlist" && !parsed.videoId) {
-      const playlistUrl = `https://www.youtube.com/playlist?list=${parsed.playlistId}`;
-      const res = await fetch(`${SERVER_URL}/api/playlist`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: playlistUrl }),
-      });
+      // Cobalt doesn't have a playlist metadata endpoint.
+      // We use oembed to get the playlist title, and return tracks
+      // with just videoId-based info — actual metadata comes at download time.
+      const playlistId = parsed.playlistId!;
 
-      if (!res.ok) {
-        const err = await res.text().catch(() => "Failed to get playlist info");
-        throw new Error(err);
-      }
+      // Try to get playlist info via YouTube's oembed (public, no auth)
+      let playlistTitle = "Playlist";
+      try {
+        const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/playlist?list=${playlistId}&format=json`;
+        const oembedRes = await fetch(oembedUrl, {
+          signal: AbortSignal.timeout(5000),
+        });
+        if (oembedRes.ok) {
+          const oembed = await oembedRes.json();
+          playlistTitle = oembed.title || playlistTitle;
+        }
+      } catch {}
 
-      const playlistInfo = await res.json();
-      const tracks: Track[] = (playlistInfo.tracks || []).map(
-        (t: { id: string; title: string; duration: number; thumbnail: string }) => ({
-          id: t.id,
-          title: t.title || "Unknown",
-          thumbnail: (t.thumbnail && t.thumbnail !== "NA" && t.thumbnail.startsWith("http")) ? t.thumbnail : getThumbnailUrl(t.id),
-          duration: t.duration || 0,
-          channel: "Unknown",
-          downloaded: false,
-        }),
-      );
-
-      const response: ParseResponse = {
-        type: "playlist",
-        tracks,
-        playlistTitle: playlistInfo.title,
-      };
-      return NextResponse.json(response);
+      // YouTube doesn't expose playlist items via public API without API key.
+      // Return the playlist URL as a single track — user can add individual videos.
+      return NextResponse.json({
+        error: "플레이리스트는 개별 영상 URL로 추가해주세요. 플레이리스트 전체 가져오기는 준비 중입니다.",
+      }, { status: 400 });
     }
 
-    // Handle single video (including playlist URL with a specific video)
+    // Single video
     const videoId = parsed.videoId;
     if (!videoId) {
       return NextResponse.json(
@@ -70,27 +58,29 @@ export async function POST(request: Request) {
       );
     }
 
-    const youtubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
+    // Get video info via YouTube oembed (public, no auth, no API key)
+    let title = "Unknown";
+    let channel = "Unknown";
+    const thumbnail = getThumbnailUrl(videoId);
 
-    const res = await fetch(`${SERVER_URL}/api/info`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: youtubeUrl }),
-    });
+    try {
+      const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+      const oembedRes = await fetch(oembedUrl, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (oembedRes.ok) {
+        const oembed = await oembedRes.json();
+        title = oembed.title || title;
+        channel = oembed.author_name || channel;
+      }
+    } catch {}
 
-    if (!res.ok) {
-      const err = await res.text().catch(() => "Failed to get info");
-      throw new Error(err);
-    }
-
-    const info = await res.json();
-
-    const track = {
+    const track: Track = {
       id: videoId,
-      title: info.title || "Unknown",
-      thumbnail: info.thumbnail || getThumbnailUrl(videoId),
-      duration: info.duration || 0,
-      channel: info.channel || "Unknown",
+      title,
+      thumbnail,
+      duration: 0,
+      channel,
     };
 
     const response: ParseResponse = { type: "video", tracks: [track] };
