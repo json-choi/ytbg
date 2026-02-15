@@ -5,6 +5,67 @@ import { parseYoutubeUrl, getThumbnailUrl } from "@/lib/youtube";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+async function fetchPlaylistTracks(playlistId: string): Promise<{ title: string; tracks: Track[] }> {
+  const url = `https://www.youtube.com/playlist?list=${playlistId}`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+      "Accept-Language": "ko-KR,ko;q=0.9",
+    },
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!res.ok) throw new Error("Failed to fetch playlist page");
+
+  const html = await res.text();
+
+  // 플레이리스트 제목 추출
+  let playlistTitle = "Playlist";
+  const titleMatch = html.match(/"title":"([^"]+)".*?"playlistId"/);
+  if (titleMatch) playlistTitle = titleMatch[1];
+
+  // ytInitialData에서 영상 목록 추출
+  const dataMatch = html.match(/var ytInitialData = ({.*?});<\/script>/s);
+  if (!dataMatch) throw new Error("Could not parse playlist data");
+
+  const data = JSON.parse(dataMatch[1]);
+
+  const tracks: Track[] = [];
+  const seen = new Set<string>();
+
+  // 재귀적으로 videoId + title 추출
+  const jsonStr = JSON.stringify(data);
+  const videoPattern = /"videoId":"([a-zA-Z0-9_-]{11})"/g;
+  const videoIds: string[] = [];
+  let match;
+  while ((match = videoPattern.exec(jsonStr)) !== null) {
+    if (!seen.has(match[1])) {
+      seen.add(match[1]);
+      videoIds.push(match[1]);
+    }
+  }
+
+  // 각 videoId에 대한 제목도 추출 시도
+  for (const videoId of videoIds) {
+    const titlePattern = new RegExp(
+      `"videoId":"${videoId}"[^}]*?"title":\\{"runs":\\[\\{"text":"([^"]+)"`,
+    );
+    const titleMatch2 = jsonStr.match(titlePattern);
+    const title = titleMatch2?.[1] || "Unknown";
+
+    tracks.push({
+      id: videoId,
+      title,
+      thumbnail: getThumbnailUrl(videoId),
+      duration: 0,
+      channel: "Unknown",
+      downloaded: false,
+    });
+  }
+
+  return { title: playlistTitle, tracks };
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -23,51 +84,35 @@ export async function POST(request: Request) {
       );
     }
 
+    // 플레이리스트 처리
     if (parsed.type === "playlist" && !parsed.videoId) {
-      // Cobalt doesn't have a playlist metadata endpoint.
-      // We use oembed to get the playlist title, and return tracks
-      // with just videoId-based info — actual metadata comes at download time.
-      const playlistId = parsed.playlistId!;
+      const { title, tracks } = await fetchPlaylistTracks(parsed.playlistId!);
 
-      // Try to get playlist info via YouTube's oembed (public, no auth)
-      let playlistTitle = "Playlist";
-      try {
-        const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/playlist?list=${playlistId}&format=json`;
-        const oembedRes = await fetch(oembedUrl, {
-          signal: AbortSignal.timeout(5000),
-        });
-        if (oembedRes.ok) {
-          const oembed = await oembedRes.json();
-          playlistTitle = oembed.title || playlistTitle;
-        }
-      } catch {}
+      if (tracks.length === 0) {
+        return NextResponse.json({ error: "플레이리스트에서 영상을 찾을 수 없습니다." }, { status: 400 });
+      }
 
-      // YouTube doesn't expose playlist items via public API without API key.
-      // Return the playlist URL as a single track — user can add individual videos.
-      return NextResponse.json({
-        error: "플레이리스트는 개별 영상 URL로 추가해주세요. 플레이리스트 전체 가져오기는 준비 중입니다.",
-      }, { status: 400 });
+      const response: ParseResponse = {
+        type: "playlist",
+        tracks,
+        playlistTitle: title,
+      };
+      return NextResponse.json(response);
     }
 
-    // Single video
+    // 단일 영상
     const videoId = parsed.videoId;
     if (!videoId) {
-      return NextResponse.json(
-        { error: "Could not parse URL" },
-        { status: 400 },
-      );
+      return NextResponse.json({ error: "Could not parse URL" }, { status: 400 });
     }
 
-    // Get video info via YouTube oembed (public, no auth, no API key)
     let title = "Unknown";
     let channel = "Unknown";
     const thumbnail = getThumbnailUrl(videoId);
 
     try {
       const oembedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-      const oembedRes = await fetch(oembedUrl, {
-        signal: AbortSignal.timeout(5000),
-      });
+      const oembedRes = await fetch(oembedUrl, { signal: AbortSignal.timeout(5000) });
       if (oembedRes.ok) {
         const oembed = await oembedRes.json();
         title = oembed.title || title;
@@ -75,20 +120,12 @@ export async function POST(request: Request) {
       }
     } catch {}
 
-    const track: Track = {
-      id: videoId,
-      title,
-      thumbnail,
-      duration: 0,
-      channel,
-    };
-
+    const track: Track = { id: videoId, title, thumbnail, duration: 0, channel };
     const response: ParseResponse = { type: "video", tracks: [track] };
     return NextResponse.json(response);
   } catch (error) {
     console.error("Parse error:", error);
-    const message =
-      error instanceof Error ? error.message : "Failed to parse URL";
+    const message = error instanceof Error ? error.message : "Failed to parse URL";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
