@@ -41,10 +41,30 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" className="dark">
-      <body className={`${geist.variable} font-sans antialiased`}>
+      <body
+        className={`${geist.variable} font-sans antialiased`}
+        style={{
+          /* Ensure full viewport height on mobile (iOS Safari address bar) */
+          minHeight: "100dvh",
+        }}
+      >
         <ServiceWorkerRegistrar />
         <PlayerProvider>
-          <main className="min-h-dvh" style={{ paddingBottom: "calc(3.5rem + 4rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>
+          {/*
+            Main content area:
+            - padding-top: safe area for status bar (handled by Header)
+            - padding-bottom: nav bar (49px) + safe area + mini player space (64px)
+            The CSS custom properties are set in globals.css
+          */}
+          <main
+            className="main-content"
+            style={{
+              paddingBottom:
+                "calc(var(--bottom-nav-height, 49px) + env(safe-area-inset-bottom, 0px) + var(--mini-player-space, 0px))",
+            }}
+          >
+            {children}
+          </main>
           <BottomNav />
         </PlayerProvider>
       </body>

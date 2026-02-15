@@ -15,7 +15,12 @@ import { Play, Save } from "lucide-react";
 
 export default function HomePage() {
   const { playQueue, addToQueue } = usePlayer();
-  const { playlists, createPlaylist, removePlaylist, loading: playlistsLoading } = usePlaylists();
+  const {
+    playlists,
+    createPlaylist,
+    removePlaylist,
+    loading: playlistsLoading,
+  } = usePlaylists();
   const { entries: history, loading: historyLoading } = useHistory();
   const [parsedTracks, setParsedTracks] = useState<Track[]>([]);
   const [parsedTitle, setParsedTitle] = useState<string | null>(null);
@@ -42,33 +47,40 @@ export default function HomePage() {
   const recentTracks = history.slice(0, 10).map((e) => e.track);
 
   return (
-    <div>
+    <div className="flex flex-1 flex-col">
       <Header title="YTBG Player" />
       <InstallBanner />
 
-      <div className="space-y-6 p-4">
+      <div className="flex-1 space-y-6 px-4 py-5">
+        {/* URL Input */}
         <section>
           <AddUrlInput onParsed={handleParsed} />
         </section>
 
+        {/* Parsed tracks */}
         {parsedTracks.length > 0 && (
           <section className="space-y-3">
             <div className="flex items-center justify-between">
-              <h2 className="font-semibold">
+              <h2 className="text-[15px] font-semibold tracking-[-0.01em]">
                 {parsedTitle ?? "Parsed Tracks"} ({parsedTracks.length})
               </h2>
               <div className="flex gap-2">
-                <Button size="sm" onClick={handlePlayAll}>
-                  <Play className="mr-1 size-4" />
+                <Button size="sm" className="h-8 rounded-full px-4 text-[13px]" onClick={handlePlayAll}>
+                  <Play className="mr-1 size-3.5" />
                   Play All
                 </Button>
-                <Button size="sm" variant="outline" onClick={handleSavePlaylist}>
-                  <Save className="mr-1 size-4" />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 rounded-full px-4 text-[13px]"
+                  onClick={handleSavePlaylist}
+                >
+                  <Save className="mr-1 size-3.5" />
                   Save
                 </Button>
               </div>
             </div>
-            <div className="space-y-1">
+            <div className="-mx-3 space-y-0.5">
               {parsedTracks.map((track, i) => (
                 <TrackItem
                   key={track.id}
@@ -82,10 +94,13 @@ export default function HomePage() {
           </section>
         )}
 
+        {/* Recently Played */}
         {recentTracks.length > 0 && (
           <section className="space-y-3">
-            <h2 className="font-semibold">Recently Played</h2>
-            <div className="space-y-1">
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em]">
+              Recently Played
+            </h2>
+            <div className="-mx-3 space-y-0.5">
               {recentTracks.map((track, i) => (
                 <TrackItem
                   key={`${track.id}-${i}`}
@@ -98,9 +113,12 @@ export default function HomePage() {
           </section>
         )}
 
+        {/* Saved Playlists */}
         {!playlistsLoading && playlists.length > 0 && (
           <section className="space-y-3">
-            <h2 className="font-semibold">Saved Playlists</h2>
+            <h2 className="text-[15px] font-semibold tracking-[-0.01em]">
+              Saved Playlists
+            </h2>
             <div className="grid grid-cols-2 gap-3">
               {playlists.map((pl) => (
                 <PlaylistCard
@@ -113,15 +131,21 @@ export default function HomePage() {
           </section>
         )}
 
-        {!historyLoading && recentTracks.length === 0 && !playlistsLoading && playlists.length === 0 && parsedTracks.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-            <div className="text-4xl">🎵</div>
-            <h2 className="text-lg font-medium">Start Listening</h2>
-            <p className="max-w-xs text-sm text-muted-foreground">
-              Paste a YouTube video or playlist URL above to start playing music in the background.
-            </p>
-          </div>
-        )}
+        {/* Empty state */}
+        {!historyLoading &&
+          recentTracks.length === 0 &&
+          !playlistsLoading &&
+          playlists.length === 0 &&
+          parsedTracks.length === 0 && (
+            <div className="flex flex-1 flex-col items-center justify-center gap-4 py-20 text-center">
+              <div className="text-5xl">🎵</div>
+              <h2 className="text-[17px] font-semibold">Start Listening</h2>
+              <p className="max-w-[260px] text-[14px] leading-relaxed text-muted-foreground">
+                Paste a YouTube video or playlist URL above to start playing
+                music in the background.
+              </p>
+            </div>
+          )}
       </div>
     </div>
   );

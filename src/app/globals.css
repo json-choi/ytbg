@@ -119,10 +119,60 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
-    @apply bg-background text-foreground;
   }
+}
+
+/* ===== Native App Feel ===== */
+
+/* Layout custom properties */
+:root {
+  --bottom-nav-height: 49px;
+  --mini-player-height: 64px;
+  --mini-player-space: 0px; /* toggled by JS when player is active */
+}
+
+/* Disable tap highlight on all interactive elements */
+a,
+button,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Prevent text selection on UI chrome (not content) */
+nav,
+header {
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Smooth scrolling for the whole page */
+html {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Prevent overscroll bounce on the body (iOS) */
+body {
+  overscroll-behavior-y: none;
+}
+
+/* Main content area */
+.main-content {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Safe area padding for header (status bar) */
+.app-header {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Ensure touch targets are at least 44px */
+.touch-target {
+  min-height: 44px;
+  min-width: 44px;
 }

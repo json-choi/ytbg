@@ -27,11 +27,24 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     }
   }, [volume]);
 
+  // Toggle mini player space CSS variable so main content adjusts padding
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--mini-player-space",
+      currentTrack ? "72px" : "0px",
+    );
+    return () => {
+      document.documentElement.style.setProperty("--mini-player-space", "0px");
+    };
+  }, [currentTrack]);
+
   return (
     <>
       {children}
       {currentTrack && <MiniPlayer onExpand={() => setExpanded(true)} />}
-      {expanded && currentTrack && <FullPlayer onCollapse={() => setExpanded(false)} />}
+      {expanded && currentTrack && (
+        <FullPlayer onCollapse={() => setExpanded(false)} />
+      )}
     </>
   );
 }

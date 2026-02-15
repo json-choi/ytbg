@@ -57,99 +57,145 @@ export function FullPlayer({ onCollapse }: FullPlayerProps) {
   if (!currentTrack) return null;
 
   const RepeatIcon = repeat === "one" ? Repeat1 : Repeat;
-  const isDownloading = isLoading && downloadProgress > 0 && downloadProgress < 100;
+  const isDownloading =
+    isLoading && downloadProgress > 0 && downloadProgress < 100;
 
   return (
-    <div className="fixed inset-0 z-[60] flex flex-col bg-background">
-      <div className="flex items-center justify-between px-4 py-3">
-        <Button variant="ghost" size="icon" onClick={onCollapse}>
+    <div
+      className="fixed inset-0 z-[60] flex flex-col bg-background"
+      style={{
+        paddingTop: "env(safe-area-inset-top, 0px)",
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+      }}
+    >
+      {/* Header */}
+      <div className="flex h-11 shrink-0 items-center justify-between px-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="size-10 rounded-full"
+          onClick={onCollapse}
+        >
           <ChevronDown className="size-6" />
         </Button>
-        <span className="text-sm font-medium text-muted-foreground">Now Playing</span>
+        <span className="text-[13px] font-medium tracking-wide text-muted-foreground uppercase">
+          Now Playing
+        </span>
         <QueueSheet />
       </div>
 
-      <div className="flex flex-1 flex-col items-center justify-center gap-6 px-8">
-        <div className="relative aspect-square w-full max-w-xs overflow-hidden rounded-xl shadow-2xl">
+      {/* Content */}
+      <div className="flex flex-1 flex-col items-center justify-center gap-8 px-10">
+        {/* Album art */}
+        <div className="relative aspect-square w-full max-w-[280px] overflow-hidden rounded-2xl shadow-2xl shadow-black/40">
           <Image
             src={currentTrack.thumbnail}
             alt={currentTrack.title}
             fill
             className="object-cover"
-            sizes="320px"
+            sizes="280px"
             priority
           />
           {isDownloading && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
               <Download className="mb-2 size-8 animate-bounce text-white" />
-              <span className="text-lg font-bold text-white">{downloadProgress}%</span>
+              <span className="text-lg font-bold text-white">
+                {downloadProgress}%
+              </span>
             </div>
           )}
         </div>
 
-        <div className="w-full max-w-xs space-y-1 text-center">
-          <h2 className="text-lg font-semibold leading-tight">{currentTrack.title}</h2>
-          <p className="text-sm text-muted-foreground">{currentTrack.channel}</p>
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+        {/* Track info */}
+        <div className="w-full max-w-[280px] space-y-1 text-center">
+          <h2 className="text-[17px] font-bold leading-tight tracking-[-0.01em]">
+            {currentTrack.title}
+          </h2>
+          <p className="text-[15px] text-muted-foreground">
+            {currentTrack.channel}
+          </p>
+          {error && <p className="text-sm text-destructive">{error}</p>}
           {isDownloading && (
-            <p className="text-sm text-blue-500">다운로드 중... {downloadProgress}%</p>
+            <p className="text-sm text-blue-400">
+              다운로드 중... {downloadProgress}%
+            </p>
           )}
         </div>
 
-        <div className="w-full max-w-xs">
-          <ProgressBar currentTime={currentTime} duration={duration} onSeek={seekTo} />
+        {/* Progress */}
+        <div className="w-full max-w-[280px]">
+          <ProgressBar
+            currentTime={currentTime}
+            duration={duration}
+            onSeek={seekTo}
+          />
         </div>
 
-        <div className="flex w-full max-w-xs items-center justify-between">
+        {/* Playback controls */}
+        <div className="flex w-full max-w-[280px] items-center justify-between">
           <Button
             variant="ghost"
             size="icon"
-            className={cn("size-10", shuffle && "text-primary")}
+            className={cn("size-10 rounded-full", shuffle && "text-primary")}
             onClick={toggleShuffle}
           >
-            <Shuffle className="size-5" />
+            <Shuffle className="size-[20px]" />
           </Button>
-          <Button variant="ghost" size="icon" className="size-12" onClick={playPrevious}>
-            <SkipBack className="size-6 fill-current" />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="size-12 rounded-full"
+            onClick={playPrevious}
+          >
+            <SkipBack className="size-[26px] fill-current" />
           </Button>
           <Button
             size="icon"
-            className="size-14 rounded-full"
+            className="size-16 rounded-full shadow-lg"
             onClick={error ? retryPlay : togglePlay}
           >
             {isLoading ? (
-              <Loader2 className="size-7 animate-spin" />
+              <Loader2 className="size-8 animate-spin" />
             ) : error ? (
-              <AlertCircle className="size-7 text-destructive" />
+              <AlertCircle className="size-8 text-destructive" />
             ) : isPlaying ? (
-              <Pause className="size-7 fill-current" />
+              <Pause className="size-8 fill-current" />
             ) : (
-              <Play className="size-7 fill-current" />
+              <Play className="size-8 fill-current" />
             )}
-          </Button>
-          <Button variant="ghost" size="icon" className="size-12" onClick={playNext}>
-            <SkipForward className="size-6 fill-current" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
-            className={cn("size-10", repeat !== "none" && "text-primary")}
+            className="size-12 rounded-full"
+            onClick={playNext}
+          >
+            <SkipForward className="size-[26px] fill-current" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn(
+              "size-10 rounded-full",
+              repeat !== "none" && "text-primary",
+            )}
             onClick={cycleRepeat}
           >
-            <RepeatIcon className="size-5" />
+            <RepeatIcon className="size-[20px]" />
           </Button>
         </div>
 
-        <div className="flex w-full max-w-xs items-center justify-between">
+        {/* Secondary controls */}
+        <div className="flex w-full max-w-[280px] items-center justify-between">
           <Button
             variant="ghost"
             size="icon"
-            className={cn("size-9", isFav && "text-red-500")}
+            className={cn("size-10 rounded-full", isFav && "text-red-500")}
             onClick={() => currentTrack && toggleFavorite(currentTrack)}
           >
-            <Heart className={cn("size-5", isFav && "fill-current")} />
+            <Heart
+              className={cn("size-[22px]", isFav && "fill-current")}
+            />
           </Button>
           <VolumeControl
             volume={volume}

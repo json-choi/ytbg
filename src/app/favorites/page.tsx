@@ -11,15 +11,15 @@ export default function FavoritesPage() {
   const { playQueue, addToQueue } = usePlayer();
 
   return (
-    <div>
+    <div className="flex flex-1 flex-col">
       <Header title="Favorites" />
 
-      <div className="p-4">
+      <div className="flex-1 px-4 py-5">
         {loading ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3">
-                <Skeleton className="size-12 rounded" />
+                <Skeleton className="size-11 rounded-lg" />
                 <div className="flex-1 space-y-2">
                   <Skeleton className="h-4 w-3/4" />
                   <Skeleton className="h-3 w-1/2" />
@@ -28,11 +28,13 @@ export default function FavoritesPage() {
             ))}
           </div>
         ) : favorites.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
-            <p className="text-sm text-muted-foreground">No favorites yet</p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 py-20 text-center">
+            <p className="text-[14px] text-muted-foreground">
+              No favorites yet
+            </p>
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className="-mx-3 space-y-0.5">
             {favorites.map((track, i) => (
               <TrackItem
                 key={track.id}

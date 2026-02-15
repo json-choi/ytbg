@@ -15,22 +15,27 @@ export default function HistoryPage() {
   const tracks = entries.map((e) => e.track);
 
   return (
-    <div>
+    <div className="flex flex-1 flex-col">
       <Header title="History">
         {entries.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={clearAll}>
-            <Trash2 className="mr-1 size-4" />
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 rounded-full px-3 text-[13px]"
+            onClick={clearAll}
+          >
+            <Trash2 className="mr-1 size-3.5" />
             Clear
           </Button>
         )}
       </Header>
 
-      <div className="p-4">
+      <div className="flex-1 px-4 py-5">
         {loading ? (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, i) => (
               <div key={i} className="flex items-center gap-3">
-                <Skeleton className="size-12 rounded" />
+                <Skeleton className="size-11 rounded-lg" />
                 <div className="flex-1 space-y-2">
                   <Skeleton className="h-4 w-3/4" />
                   <Skeleton className="h-3 w-1/2" />
@@ -39,11 +44,11 @@ export default function HistoryPage() {
             ))}
           </div>
         ) : entries.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-20 text-center">
-            <p className="text-sm text-muted-foreground">No history yet</p>
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 py-20 text-center">
+            <p className="text-[14px] text-muted-foreground">No history yet</p>
           </div>
         ) : (
-          <div className="space-y-1">
+          <div className="-mx-3 space-y-0.5">
             {entries.map((entry, i) => (
               <TrackItem
                 key={`${entry.track.id}-${entry.playedAt}`}
