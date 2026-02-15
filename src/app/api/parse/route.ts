@@ -9,7 +9,7 @@ async function fetchPlaylistTracks(playlistId: string): Promise<{ title: string;
   const url = `https://www.youtube.com/playlist?list=${playlistId}`;
   const res = await fetch(url, {
     headers: {
-      "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
       "Accept-Language": "ko-KR,ko;q=0.9",
     },
     signal: AbortSignal.timeout(10000),
@@ -25,42 +25,66 @@ async function fetchPlaylistTracks(playlistId: string): Promise<{ title: string;
   if (titleMatch) playlistTitle = titleMatch[1];
 
   // ytInitialData에서 영상 목록 추출
-  const dataMatch = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
-  if (!dataMatch) throw new Error("Could not parse playlist data");
+  const dataMatch = html.match(/var ytInitialData = ({[\s\S]*?});\s*<\/script>/);
+  if (!dataMatch) {
+    // 폴백: videoId만 추출
+    const fallbackIds = [...html.matchAll(/"videoId":"([a-zA-Z0-9_-]{11})"/g)]
+      .map(m => m[1])
+      .filter((v, i, a) => a.indexOf(v) === i);
 
-  const data = JSON.parse(dataMatch[1]);
+    if (fallbackIds.length === 0) throw new Error("Could not parse playlist data");
 
-  const tracks: Track[] = [];
-  const seen = new Set<string>();
-
-  // 재귀적으로 videoId + title 추출
-  const jsonStr = JSON.stringify(data);
-  const videoPattern = /"videoId":"([a-zA-Z0-9_-]{11})"/g;
-  const videoIds: string[] = [];
-  let match;
-  while ((match = videoPattern.exec(jsonStr)) !== null) {
-    if (!seen.has(match[1])) {
-      seen.add(match[1]);
-      videoIds.push(match[1]);
-    }
-  }
-
-  // 각 videoId에 대한 제목도 추출 시도
-  for (const videoId of videoIds) {
-    const titlePattern = new RegExp(
-      `"videoId":"${videoId}"[^}]*?"title":\\{"runs":\\[\\{"text":"([^"]+)"`,
-    );
-    const titleMatch2 = jsonStr.match(titlePattern);
-    const title = titleMatch2?.[1] || "Unknown";
-
-    tracks.push({
-      id: videoId,
-      title,
-      thumbnail: getThumbnailUrl(videoId),
+    const tracks: Track[] = fallbackIds.map(id => ({
+      id,
+      title: "Unknown",
+      thumbnail: getThumbnailUrl(id),
       duration: 0,
       channel: "Unknown",
       downloaded: false,
-    });
+    }));
+
+    return { title: playlistTitle, tracks };
+  }
+
+  const jsonStr = dataMatch[1];
+  const tracks: Track[] = [];
+  const seen = new Set<string>();
+
+  // playlistVideoRenderer에서 videoId + title 추출
+  const rendererPattern = /"playlistVideoRenderer":\{"videoId":"([a-zA-Z0-9_-]{11})"[\s\S]*?"title":\{"runs":\[\{"text":"([^"]*?)"\}/g;
+  let match;
+  while ((match = rendererPattern.exec(jsonStr)) !== null) {
+    const [, videoId, title] = match;
+    if (!seen.has(videoId)) {
+      seen.add(videoId);
+      tracks.push({
+        id: videoId,
+        title: title || "Unknown",
+        thumbnail: getThumbnailUrl(videoId),
+        duration: 0,
+        channel: "Unknown",
+        downloaded: false,
+      });
+    }
+  }
+
+  // renderer 파싱 실패 시 videoId만이라도 추출
+  if (tracks.length === 0) {
+    const idPattern = /"videoId":"([a-zA-Z0-9_-]{11})"/g;
+    let idMatch;
+    while ((idMatch = idPattern.exec(jsonStr)) !== null) {
+      if (!seen.has(idMatch[1])) {
+        seen.add(idMatch[1]);
+        tracks.push({
+          id: idMatch[1],
+          title: "Unknown",
+          thumbnail: getThumbnailUrl(idMatch[1]),
+          duration: 0,
+          channel: "Unknown",
+          downloaded: false,
+        });
+      }
+    }
   }
 
   return { title: playlistTitle, tracks };
