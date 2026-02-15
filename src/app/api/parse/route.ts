@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import type { ParseResponse } from "@/lib/types";
+import type { ParseResponse, Track } from "@/lib/types";
 import { parseYoutubeUrl, getThumbnailUrl } from "@/lib/youtube";
 
 const SERVER_URL =
@@ -27,16 +27,41 @@ export async function POST(request: Request) {
       );
     }
 
-    // For playlists, we no longer support fetching all tracks at once.
-    // If there's a video ID in the playlist URL, treat it as a single video.
-    // Otherwise, return an error suggesting individual URLs.
+    // Handle playlist URLs
     if (parsed.type === "playlist" && !parsed.videoId) {
-      return NextResponse.json(
-        { error: "플레이리스트는 지원하지 않습니다. 개별 영상 URL을 사용해주세요." },
-        { status: 400 },
+      const playlistUrl = `https://www.youtube.com/playlist?list=${parsed.playlistId}`;
+      const res = await fetch(`${SERVER_URL}/api/playlist`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: playlistUrl }),
+      });
+
+      if (!res.ok) {
+        const err = await res.text().catch(() => "Failed to get playlist info");
+        throw new Error(err);
+      }
+
+      const playlistInfo = await res.json();
+      const tracks: Track[] = (playlistInfo.tracks || []).map(
+        (t: { id: string; title: string; duration: number; thumbnail: string }) => ({
+          id: t.id,
+          title: t.title || "Unknown",
+          thumbnail: t.thumbnail || getThumbnailUrl(t.id),
+          duration: t.duration || 0,
+          channel: "Unknown",
+          downloaded: false,
+        }),
       );
+
+      const response: ParseResponse = {
+        type: "playlist",
+        tracks,
+        playlistTitle: playlistInfo.title,
+      };
+      return NextResponse.json(response);
     }
 
+    // Handle single video (including playlist URL with a specific video)
     const videoId = parsed.videoId;
     if (!videoId) {
       return NextResponse.json(
