@@ -31,6 +31,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -43,7 +44,7 @@ export default function RootLayout({
       <body className={`${geist.variable} font-sans antialiased`}>
         <ServiceWorkerRegistrar />
         <PlayerProvider>
-          <main className="min-h-dvh pb-[calc(3.5rem+4rem)]">{children}</main>
+          <main className="min-h-dvh" style={{ paddingBottom: "calc(3.5rem + 4rem + env(safe-area-inset-bottom, 0px))" }}>{children}</main>
           <BottomNav />
         </PlayerProvider>
       </body>
