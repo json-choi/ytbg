@@ -46,7 +46,7 @@ export async function POST(request: Request) {
         (t: { id: string; title: string; duration: number; thumbnail: string }) => ({
           id: t.id,
           title: t.title || "Unknown",
-          thumbnail: t.thumbnail || getThumbnailUrl(t.id),
+          thumbnail: (t.thumbnail && t.thumbnail !== "NA" && t.thumbnail.startsWith("http")) ? t.thumbnail : getThumbnailUrl(t.id),
           duration: t.duration || 0,
           channel: "Unknown",
           downloaded: false,
