@@ -25,7 +25,7 @@ async function fetchPlaylistTracks(playlistId: string): Promise<{ title: string;
   if (titleMatch) playlistTitle = titleMatch[1];
 
   // ytInitialData에서 영상 목록 추출
-  const dataMatch = html.match(/var ytInitialData = ({.*?});<\/script>/s);
+  const dataMatch = html.match(/var ytInitialData = ({[\s\S]*?});<\/script>/);
   if (!dataMatch) throw new Error("Could not parse playlist data");
 
   const data = JSON.parse(dataMatch[1]);
