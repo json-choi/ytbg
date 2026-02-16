@@ -6,14 +6,13 @@ import {
   updatePositionState,
   clearMediaSession,
 } from "./media-session";
-import { addToHistory, getMp3, saveMp3 } from "./db";
-import { convertToMp3 } from "./ytbg-api";
+import { addToHistory } from "./db";
+import { getAudioStream, type AudioStreamResult } from "./ytbg-api";
 
 type Listener = (state: PlayerState) => void;
 
-const BLOB_URL_CACHE = new Map<string, string>();
+const STREAM_CACHE = new Map<string, AudioStreamResult>();
 
-// Minimal silent WAV for unlocking audio on mobile
 const SILENCE_DATA_URI =
   "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
 
@@ -159,39 +158,22 @@ class AudioManager {
     this.listeners.forEach((l) => l(this.state));
   }
 
-  private getBlobUrl(trackId: string, blob: Blob): string {
-    // Revoke old URL if different blob
-    const existing = BLOB_URL_CACHE.get(trackId);
-    if (existing) return existing;
-
-    const url = URL.createObjectURL(blob);
-    BLOB_URL_CACHE.set(trackId, url);
-    return url;
-  }
-
-  private async getOrDownloadMp3(track: Track): Promise<string> {
-    // 1) Check IndexedDB cache
-    const cached = BLOB_URL_CACHE.get(track.id);
-    if (cached) return cached;
-
-    const stored = await getMp3(track.id);
-    if (stored) {
-      return this.getBlobUrl(track.id, stored);
+  private async getStreamUrl(track: Track): Promise<string> {
+    const cached = STREAM_CACHE.get(track.id);
+    if (cached && cached.expiresAt > Date.now() + 60_000) {
+      return cached.proxyUrl;
     }
 
-    // 2) Download from ytbg-server
-    const youtubeUrl = `https://www.youtube.com/watch?v=${track.id}`;
-    this.setState({ downloadProgress: 0 });
+    this.setState({ downloadProgress: 30 });
+    const result = await getAudioStream(track.id);
+    STREAM_CACHE.set(track.id, result);
 
-    const result = await convertToMp3(youtubeUrl, (pct) => {
-      this.setState({ downloadProgress: pct });
-    });
-
-    // Save to IndexedDB
-    await saveMp3(track.id, result.blob);
+    if (result.duration && !track.duration) {
+      track.duration = result.duration;
+    }
 
     this.setState({ downloadProgress: 100 });
-    return this.getBlobUrl(track.id, result.blob);
+    return result.proxyUrl;
   }
 
   async playTrack(track: Track, queue?: Track[], queueIndex?: number): Promise<void> {
@@ -218,8 +200,8 @@ class AudioManager {
         } catch { /* empty */ }
       }
 
-      const blobUrl = await this.getOrDownloadMp3(track);
-      this.audio!.src = blobUrl;
+      const streamUrl = await this.getStreamUrl(track);
+      this.audio!.src = streamUrl;
       await this.audio!.play();
       this.consecutiveErrors = 0;
       addToHistory(track).catch(() => {});
@@ -422,11 +404,7 @@ class AudioManager {
     }
     clearMediaSession();
     this.listeners.clear();
-    // Revoke all blob URLs
-    for (const url of BLOB_URL_CACHE.values()) {
-      URL.revokeObjectURL(url);
-    }
-    BLOB_URL_CACHE.clear();
+    STREAM_CACHE.clear();
     this.unlocked = false;
     this.consecutiveErrors = 0;
   }

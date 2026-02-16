@@ -57,7 +57,7 @@ export function FullPlayer({ onCollapse }: FullPlayerProps) {
   if (!currentTrack) return null;
 
   const RepeatIcon = repeat === "one" ? Repeat1 : Repeat;
-  const isDownloading =
+  const isBuffering =
     isLoading && downloadProgress > 0 && downloadProgress < 100;
 
   return (
@@ -96,11 +96,11 @@ export function FullPlayer({ onCollapse }: FullPlayerProps) {
             sizes="280px"
             priority
           />
-          {isDownloading && (
+          {isBuffering && (
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/50">
               <Download className="mb-2 size-8 animate-bounce text-white" />
               <span className="text-lg font-bold text-white">
-                {downloadProgress}%
+                로딩 중...
               </span>
             </div>
           )}
@@ -115,9 +115,9 @@ export function FullPlayer({ onCollapse }: FullPlayerProps) {
             {currentTrack.channel}
           </p>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          {isDownloading && (
+          {isBuffering && (
             <p className="text-sm text-blue-400">
-              다운로드 중... {downloadProgress}%
+              로딩 중...
             </p>
           )}
         </div>

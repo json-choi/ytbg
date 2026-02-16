@@ -35,7 +35,7 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
 
   if (!currentTrack) return null;
 
-  const isDownloading =
+  const isBuffering =
     isLoading && downloadProgress > 0 && downloadProgress < 100;
 
   const handlePlayClick = (e: React.MouseEvent) => {
@@ -87,10 +87,10 @@ export function MiniPlayer({ onExpand }: MiniPlayerProps) {
                 <p className="mt-0.5 truncate text-[11px] leading-tight text-destructive">
                   {error}
                 </p>
-              ) : isDownloading ? (
+              ) : isBuffering ? (
                 <p className="mt-0.5 truncate text-[11px] leading-tight text-blue-400">
                   <Download className="mr-0.5 inline size-3" />
-                  다운로드 중... {downloadProgress}%
+                  로딩 중...
                 </p>
               ) : (
                 <p className="mt-0.5 truncate text-[11px] leading-tight text-muted-foreground">
